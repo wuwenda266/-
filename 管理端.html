@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理端</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            font-family: 'Roboto', sans-serif;
+            background: linear-gradient(135deg, #000428, #004e92);
+            color: #fff;
+        }
+
+        .container {
+            text-align: center;
+            padding: 20px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            z-index: 1;
+            position: relative;
+            backdrop-filter: blur(10px);
+            width: 90%;
+            max-width: 800px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+
+        th, td {
+            padding: 10px;
+            border: 1px solid #ccc;
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+        }
+
+        th {
+            background: rgba(0, 72, 146, 0.8);
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background: linear-gradient(135deg, #6b0f1a, #b91372);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+            transition: background 0.3s ease;
+            margin: 5px;
+        }
+
+        button:hover {
+            background: linear-gradient(135deg, #b91372, #6b0f1a);
+        }
+
+        #remaining-prizes, #total-prizes {
+            margin-top: 20px;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        #club-logo {
+            width: 100px;
+            height: auto;
+            margin-bottom: 20px;
+        }
+
+        #online-time {
+            margin-bottom: 20px;
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        /* Media Query for Mobile Devices */
+        @media (max-width: 600px) {
+            .container {
+                width: 90%;
+            }
+
+            table, th, td {
+                font-size: 14px;
+            }
+
+            button {
+                padding: 8px 16px;
+                font-size: 14px;
+            }
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <img id="club-logo" src="https://pic.imgdb.cn/item/669947e4d9c307b7e91c0027.png" alt="社团标志">
+        <div id="online-time">在线时间: <span id="time"></span></div>
+        <h1>网络技术协会抽奖程序管理端</h1>
+        <table id="prize-table">
+            <thead>
+                <tr>
+                    <th>奖项</th>
+                    <th>概率</th>
+                    <th>数量</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+        <button id="save-btn">保存设置</button>
+        <button id="export-btn">导出记录</button>
+        <button id="refresh-btn">刷新数据</button>
+        <div id="remaining-prizes"></div>
+        <div id="total-prizes"></div>
+    </div>
+    <script>
+        let prizes = [
+            { name: '特等奖', probability: 1, count: 1 },
+            { name: '一等奖', probability: 5, count: 10 },
+            { name: '二等奖', probability: 10, count: 20 },
+            { name: '三等奖', probability: 20, count: 50 },
+            { name: '纪念奖', probability: 64, count: 419 }
+        ];
+
+        let drawRecords = [];
+
+        function updateRemainingPrizes() {
+            let remainingPrizes = prizes.map(prize => `${prize.name}: ${prize.count}`).join(', ');
+            document.getElementById('remaining-prizes').innerText = `剩余奖品: ${remainingPrizes}`;
+
+            let totalPrizesCount = prizes.reduce((total, prize) => total + prize.count, 0);
+            document.getElementById('total-prizes').innerText = `总剩余奖品数量: ${totalPrizesCount}`;
+        }
+
+        function updateOnlineTime() {
+            let now = new Date();
+            let hours = String(now.getHours()).padStart(2, '0');
+            let minutes = String(now.getMinutes()).padStart(2, '0');
+            let seconds = String(now.getSeconds()).padStart(2, '0');
+            let timeString = `${hours}:${minutes}:${seconds}`;
+            document.getElementById('time').innerText = timeString;
+        }
+
+        function refreshData() {
+            let savedPrizes = localStorage.getItem('prizes');
+            if (savedPrizes) {
+                prizes = JSON.parse(savedPrizes);
+            }
+
+            let savedRecords = localStorage.getItem('drawRecords');
+            if (savedRecords) {
+                drawRecords = JSON.parse(savedRecords);
+            }
+
+            let tbody = document.querySelector('#prize-table tbody');
+            tbody.innerHTML = '';
+            prizes.forEach((prize, index) => {
+                let row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${prize.name}</td>
+                    <td><input type="number" value="${prize.probability}" data-index="${index}" data-type="probability" style="width: 50px;"></td>
+                    <td><input type="number" value="${prize.count}" data-index="${index}" data-type="count" style="width: 50px;"></td>
+                `;
+                tbody.appendChild(row);
+            });
+
+            updateRemainingPrizes();
+        }
+
+        window.addEventListener('load', function() {
+            refreshData();
+            updateOnlineTime();
+            setInterval(updateOnlineTime, 1000);
+        });
+
+        document.getElementById('save-btn').addEventListener('click', function() {
+            let inputs = document.querySelectorAll('input');
+            inputs.forEach(input => {
+                let index = input.getAttribute('data-index');
+                let type = input.getAttribute('data-type');
+                prizes[index][type] = parseInt(input.value);
+            });
+            localStorage.setItem('prizes', JSON.stringify(prizes));
+            alert('设置已保存');
+            updateRemainingPrizes();
+        });
+
+        document.getElementById('export-btn').addEventListener('click', function() {
+            let wb = XLSX.utils.book_new();
+            let ws_data = [
+                ["序号", "姓名", "学号", "班级", "奖项", "部门"],
+                ...drawRecords.map((record, index) => [index + 1, record.name, record.studentId, record.className, record.prize, "网络技术协会"])
+            ];
+            let ws = XLSX.utils.aoa_to_sheet(ws_data);
+            XLSX.utils.book_append_sheet(wb, ws, "抽奖记录");
+            XLSX.writeFile(wb, "网络技术协会抽奖记录汇总表.xlsx");
+        });
+
+        document.getElementById('refresh-btn').addEventListener('click', function() {
+            refreshData();
+        });
+    </script>
+</body>
+</html>

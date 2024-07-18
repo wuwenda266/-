@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>抽奖程序</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            font-family: 'Roboto', sans-serif;
+            background: linear-gradient(135deg, #000428, #004e92);
+            color: #fff;
+        }
+
+        .container {
+            text-align: center;
+            padding: 20px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            z-index: 1;
+            position: relative;
+            backdrop-filter: blur(10px);
+        }
+
+        .logo {
+            width: 100px;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group input {
+            padding: 10px;
+            margin: 5px;
+            font-size: 16px;
+            border: none;
+            border-radius: 5px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+        }
+
+        .form-group input::placeholder {
+            color: #ccc;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background: linear-gradient(135deg, #6b0f1a, #b91372);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+            transition: background 0.3s ease;
+        }
+
+        button:hover {
+            background: linear-gradient(135deg, #b91372, #6b0f1a);
+        }
+
+        #result, #remaining-prizes {
+            margin-top: 20px;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        #fireworks {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        #online-time {
+            margin-bottom: 20px;
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        .blue-text {
+            color: #00e5ff;
+        }
+
+        .red-text {
+            color: #ff4081;
+        }
+
+        /* Media Query for Mobile Devices */
+        @media (max-width: 600px) {
+            .container {
+                width: 90%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <img src="https://pic.imgdb.cn/item/669947e4d9c307b7e91c0027.png" alt="社团标志" class="logo">
+        <div id="online-time">在线时间: <span id="time"></span></div>
+        <h1>网络技术协会抽奖程序</h1>
+        <div class="form-group">
+            <input type="text" id="name" placeholder="姓名">
+            <input type="text" id="student-id" placeholder="学号">
+            <input type="text" id="class" placeholder="班级">
+        </div>
+        <button id="draw-btn">开始抽奖</button>
+        <div id="result"></div>
+        <div id="remaining-prizes"></div>
+    </div>
+    <canvas id="fireworks"></canvas>
+    <script>
+        let prizes = [
+            { name: '特等奖', probability: 1, count: 1 },
+            { name: '一等奖', probability: 5, count: 10 },
+            { name: '二等奖', probability: 10, count: 20 },
+            { name: '三等奖', probability: 20, count: 50 },
+            { name: '纪念奖', probability: 64, count: 419 }
+        ];
+
+        let drawRecords = [];
+
+        function updateRemainingPrizes() {
+            let remainingPrizes = prizes.map(prize => `${prize.name}: ${prize.count}`).join(', ');
+            document.getElementById('remaining-prizes').innerText = `剩余奖品: ${remainingPrizes}`;
+        }
+
+        function clearForm() {
+            document.getElementById('name').value = '';
+            document.getElementById('student-id').value = '';
+            document.getElementById('class').value = '';
+        }
+
+        function updateOnlineTime() {
+            let now = new Date();
+            let hours = String(now.getHours()).padStart(2, '0');
+            let minutes = String(now.getMinutes()).padStart(2, '0');
+            let seconds = String(now.getSeconds()).padStart(2, '0');
+            let timeString = `${hours}:${minutes}:${seconds}`;
+            document.getElementById('time').innerText = timeString;
+        }
+
+        document.getElementById('draw-btn').addEventListener('click', function() {
+            let name = document.getElementById('name').value.trim();
+            let studentId = document.getElementById('student-id').value.trim();
+            let className = document.getElementById('class').value.trim();
+
+            if (!name || !studentId || !className) {
+                alert('同学，请填写完整的信息后再抽奖哦');
+                return;
+            }
+
+            if (drawRecords.some(record => record.studentId === studentId)) {
+                alert('同学，一个人只有一次抽奖机会哦');
+                clearForm();
+                return;
+            }
+
+            let totalProbability = prizes.reduce((total, prize) => total + prize.probability, 0);
+            let random = Math.random() * totalProbability;
+            let cumulativeProbability = 0;
+
+            let result = '未中奖';
+            for (let prize of prizes) {
+                cumulativeProbability += prize.probability;
+                if (random <= cumulativeProbability && prize.count > 0) {
+                    result = prize.name;
+                    prize.count--;
+                    localStorage.setItem('prizes', JSON.stringify(prizes));
+                    break;
+                }
+            }
+
+            drawRecords.push({ name, studentId, className, prize: result });
+            localStorage.setItem('drawRecords', JSON.stringify(drawRecords));
+
+            document.getElementById('result').innerHTML = `<span class="blue-text">${name}</span>同学，恭喜获得<span class="red-text">${result}</span>`;
+            if (result !== '未中奖') {
+                startFireworks();
+            }
+            updateRemainingPrizes();
+            clearForm();
+        });
+
+        window.addEventListener('load', function() {
+            let savedPrizes = localStorage.getItem('prizes');
+            if (savedPrizes) {
+                prizes = JSON.parse(savedPrizes);
+            }
+
+            let savedRecords = localStorage.getItem('drawRecords');
+            if (savedRecords) {
+                drawRecords = JSON.parse(savedRecords);
+            }
+            updateRemainingPrizes();
+            updateOnlineTime();
+            setInterval(updateOnlineTime, 1000);
+        });
+
+        const canvas = document.getElementById('fireworks');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+        let animationFrame;
+
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        function startFireworks() {
+            particles = [];
+            for (let i = 0; i < 300; i++) {
+                particles.push(new Particle());
+            }
+            if (animationFrame) {
+                cancelAnimationFrame(animationFrame);
+            }
+            animateFireworks();
+        }
+
+        function Particle() {
+            this.x = canvas.width / 2;
+            this.y = canvas.height / 2;
+            this.speed = Math.random() * 10 + 5;
+            this.angle = Math.random() * 2 * Math.PI;
+            this.radius = Math.random() * 6 + 3;
+            this.color = `hsl(${Math.random() * 360}, 100%, 50%)`;
+
+            this.update = function() {
+                this.x += this.speed * Math.cos(this.angle);
+                this.y += this.speed * Math.sin(this.angle);
+                this.radius *= 0.98;
+            }
+
+            this.draw = function() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, 2 * Math.PI);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+            }
+        }
+
+        function animateFireworks() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            particles.forEach((particle, index) => {
+                particle.update();
+                particle.draw();
+                if (particle.radius < 0.1) {
+                    particles.splice(index, 1);
+                }
+            });
+            if (particles.length > 0) {
+                animationFrame = requestAnimationFrame(animateFireworks);
+            }
+        }
+
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+    </script>
+</body>
+</html>
